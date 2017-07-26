@@ -1,10 +1,12 @@
-hash: 8f85b7beb1d1297911dd2fd64e58ebc52f00d0bc9f348fb1b349d87f13069abc
-updated: 2017-07-26T10:45:42.563204955+02:00
+hash: e992435291c9f1e764ad50a454200823edc906f6da8fe4b879f47bcc4842fd56
+updated: 2017-07-26T11:08:52.771112354+02:00
 imports:
 - name: github.com/inconshreveable/mousetrap
   version: 76626ae9c91c4f2a10f34cad8ce83ea42c93bb75
 - name: github.com/mitchellh/go-homedir
   version: b8bc1bf767474819792c23f32d8286a45736f1c6
+- name: github.com/pelletier/go-buffruneio
+  version: c37440a7cf42ac63b919c752ca73a85067e05992
 - name: github.com/pelletier/go-toml
   version: 5ccdfb18c776b740aecaf085c4d9a2779199c279
 - name: github.com/spf13/cobra

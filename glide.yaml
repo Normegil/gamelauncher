@@ -3,3 +3,5 @@ import:
 - package: github.com/mitchellh/go-homedir
 - package: github.com/pelletier/go-toml
   version: ^1.0.0
+- package: github.com/pelletier/go-buffruneio
+  version: ~0.2.0
