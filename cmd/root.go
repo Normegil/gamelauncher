@@ -49,13 +49,23 @@ func init() {
 	if err != nil {
 		panic(err)
 	}
+	commands := make([]*cobra.Command, 0)
 	for _, game := range games {
-		RootCmd.AddCommand(&cobra.Command{
-			Use: game.Command(),
-			Run: func(cmd *cobra.Command, args []string) {
-				fmt.Println(game.Name())
-			},
-		})
+		if "" != game.Command() && !game.Disabled() {
+			commands = append(commands, &cobra.Command{
+				Use: game.Command(),
+				Run: getLaunchFunc(game),
+			})
+		}
+	}
+	RootCmd.AddCommand(commands...)
+}
+
+func getLaunchFunc(g *model.Game) func(*cobra.Command, []string) {
+	return func(cmd *cobra.Command, args []string) {
+		if err := g.Launch(); err != nil {
+			panic(err)
+		}
 	}
 }
 
@@ -77,11 +87,37 @@ func loadGames(gamesFile string) ([]*model.Game, error) {
 		}
 
 		command, ok := tree.Get("command").(string)
-		if !ok {
+		if !ok && "" != command {
 			return nil, errors.New("'command' should be an instance of 'string', got: " + reflect.TypeOf(command).String())
 		}
 
-		games = append(games, model.NewGame(name, command))
+		script, ok := tree.Get("script").(string)
+		if !ok && "" != script {
+			return nil, errors.New("'script' should be an instance of 'string', got: " + reflect.TypeOf(script).String())
+		}
+
+		scriptArgs := make([]string, 0)
+		tmp := tree.Get("script-args")
+		if nil != tmp {
+			tmpArgs, ok := tmp.([]interface{})
+			if !ok {
+				return nil, errors.New("'script-args' should be an instance of '[]string', got: " + reflect.TypeOf(tmp).String())
+			}
+			for _, arg := range tmpArgs {
+				strArg, ok := arg.(string)
+				if !ok {
+					return nil, errors.New("'script-args' should be an instances of 'string', got: " + reflect.TypeOf(arg).String())
+				}
+				scriptArgs = append(scriptArgs, strArg)
+			}
+		}
+
+		disabled, ok := tree.Get("disabled").(bool)
+		if !ok && false != disabled {
+			return nil, errors.New("'disabled' should be an instance of 'bool', got: " + reflect.TypeOf(disabled).String())
+		}
+
+		games = append(games, model.NewGame(name, command, disabled, script, scriptArgs))
 	}
 	return games, nil
 }
