@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"reflect"
@@ -12,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var gamesFile string
 var games []*model.Game
 
 var RootCmd = &cobra.Command{
@@ -33,12 +33,10 @@ func Execute() {
 }
 
 func init() {
-	cobra.OnInitialize(initConfig)
+	var gamesFile string
+	flag.StringVar(&gamesFile, "data", "", "path to config file containing the list of video games (default is $HOME/.gamelauncher.yaml)")
+	flag.Parse()
 
-	RootCmd.PersistentFlags().StringVar(&gamesFile, "data", "", "path to config file containing the list of video games (default is $HOME/.gamelauncher.yaml)")
-}
-
-func initConfig() {
 	if "" == gamesFile {
 		home, err := homedir.Dir()
 		if err != nil {
@@ -46,6 +44,22 @@ func initConfig() {
 		}
 		gamesFile = home + "/.games.toml"
 	}
+
+	games, err := loadGames(gamesFile)
+	if err != nil {
+		panic(err)
+	}
+	for _, game := range games {
+		RootCmd.AddCommand(&cobra.Command{
+			Use: game.Command(),
+			Run: func(cmd *cobra.Command, args []string) {
+				fmt.Println(game.Name())
+			},
+		})
+	}
+}
+
+func loadGames(gamesFile string) ([]*model.Game, error) {
 	gamesTree, err := toml.LoadFile(gamesFile)
 	if err != nil {
 		panic(err)
@@ -54,19 +68,20 @@ func initConfig() {
 	for _, game := range gamesTree.Keys() {
 		tree, ok := gamesTree.Get(game).(*toml.Tree)
 		if !ok {
-			panic(errors.New("Game should be an instance of toml.Tree, got: " + reflect.TypeOf(tree).String()))
+			return nil, errors.New("Game should be an instance of toml.Tree, got: " + reflect.TypeOf(tree).String())
 		}
 
 		name, ok := tree.Get("name").(string)
 		if !ok {
-			panic(errors.New("'name' should be an instance of 'string', got: " + reflect.TypeOf(name).String()))
+			return nil, errors.New("'name' should be an instance of 'string', got: " + reflect.TypeOf(name).String())
 		}
 
 		command, ok := tree.Get("command").(string)
 		if !ok {
-			panic(errors.New("'command' should be an instance of 'string', got: " + reflect.TypeOf(command).String()))
+			return nil, errors.New("'command' should be an instance of 'string', got: " + reflect.TypeOf(command).String())
 		}
 
 		games = append(games, model.NewGame(name, command))
 	}
+	return games, nil
 }
