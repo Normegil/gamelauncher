@@ -1,14 +1,19 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 	"os"
+	"reflect"
 
+	homedir "github.com/mitchellh/go-homedir"
+	"github.com/normegil/gamelauncher/model"
+	toml "github.com/pelletier/go-toml"
 	"github.com/spf13/cobra"
 )
 
 var gamesFile string
-var games []Game
+var games []*model.Game
 
 var RootCmd = &cobra.Command{
 	Use:   "gamelauncher",
@@ -34,4 +39,34 @@ func init() {
 }
 
 func initConfig() {
+	if "" == gamesFile {
+		home, err := homedir.Dir()
+		if err != nil {
+			panic(err)
+		}
+		gamesFile = home + "/.games.toml"
+	}
+	gamesTree, err := toml.LoadFile(gamesFile)
+	if err != nil {
+		panic(err)
+	}
+
+	for _, game := range gamesTree.Keys() {
+		tree, ok := gamesTree.Get(game).(*toml.Tree)
+		if !ok {
+			panic(errors.New("Game should be an instance of toml.Tree, got: " + reflect.TypeOf(tree).String()))
+		}
+
+		name, ok := tree.Get("name").(string)
+		if !ok {
+			panic(errors.New("'name' should be an instance of 'string', got: " + reflect.TypeOf(name).String()))
+		}
+
+		command, ok := tree.Get("command").(string)
+		if !ok {
+			panic(errors.New("'command' should be an instance of 'string', got: " + reflect.TypeOf(command).String()))
+		}
+
+		games = append(games, model.NewGame(name, command))
+	}
 }
