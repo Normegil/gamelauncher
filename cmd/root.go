@@ -1,11 +1,10 @@
 package cmd
 
 import (
-	"errors"
 	"flag"
 	"fmt"
 	"os"
-	"reflect"
+	"sort"
 
 	homedir "github.com/mitchellh/go-homedir"
 	"github.com/normegil/gamelauncher/model"
@@ -34,7 +33,7 @@ func Execute() {
 
 func init() {
 	var gamesFile string
-	flag.StringVar(&gamesFile, "data", "", "path to config file containing the list of video games (default is $HOME/.gamelauncher.yaml)")
+	flag.StringVar(&gamesFile, "data", "", "path to config file containing the list of video games (default is $HOME/.game.yaml)")
 	flag.Parse()
 
 	if "" == gamesFile {
@@ -51,9 +50,9 @@ func init() {
 	}
 	commands := make([]*cobra.Command, 0)
 	for _, game := range games {
-		if "" != game.Command() && !game.Disabled() {
+		if "" != game.Command && !game.Disabled {
 			commands = append(commands, &cobra.Command{
-				Use: game.Command(),
+				Use: game.Command,
 				Run: getLaunchFunc(game),
 			})
 		}
@@ -76,48 +75,16 @@ func loadGames(gamesFile string) ([]*model.Game, error) {
 	}
 
 	for _, game := range gamesTree.Keys() {
-		tree, ok := gamesTree.Get(game).(*toml.Tree)
-		if !ok {
-			return nil, errors.New("Game should be an instance of toml.Tree, got: " + reflect.TypeOf(tree).String())
+		tree := gamesTree.Get(game).(*toml.Tree)
+
+		var game model.Game
+		err := tree.Unmarshal(&game)
+		if err != nil {
+			return nil, err
 		}
 
-		name, ok := tree.Get("name").(string)
-		if !ok {
-			return nil, errors.New("'name' should be an instance of 'string', got: " + reflect.TypeOf(name).String())
-		}
-
-		command, ok := tree.Get("command").(string)
-		if !ok && "" != command {
-			return nil, errors.New("'command' should be an instance of 'string', got: " + reflect.TypeOf(command).String())
-		}
-
-		script, ok := tree.Get("script").(string)
-		if !ok && "" != script {
-			return nil, errors.New("'script' should be an instance of 'string', got: " + reflect.TypeOf(script).String())
-		}
-
-		scriptArgs := make([]string, 0)
-		tmp := tree.Get("script-args")
-		if nil != tmp {
-			tmpArgs, ok := tmp.([]interface{})
-			if !ok {
-				return nil, errors.New("'script-args' should be an instance of '[]string', got: " + reflect.TypeOf(tmp).String())
-			}
-			for _, arg := range tmpArgs {
-				strArg, ok := arg.(string)
-				if !ok {
-					return nil, errors.New("'script-args' should be an instances of 'string', got: " + reflect.TypeOf(arg).String())
-				}
-				scriptArgs = append(scriptArgs, strArg)
-			}
-		}
-
-		disabled, ok := tree.Get("disabled").(bool)
-		if !ok && false != disabled {
-			return nil, errors.New("'disabled' should be an instance of 'bool', got: " + reflect.TypeOf(disabled).String())
-		}
-
-		games = append(games, model.NewGame(name, command, disabled, script, scriptArgs))
+		games = append(games, &game)
 	}
+	sort.Sort(model.ByName(games))
 	return games, nil
 }
